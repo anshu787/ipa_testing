@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:progress_dialog/progress_dialog.dart';
+import 'package:sn_progress_dialog/sn_progress_dialog.dart';
 import 'package:rflutter_alert/rflutter_alert.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trust_location/trust_location.dart';
@@ -21,48 +21,33 @@ class AttendancePage extends StatefulWidget {
   final String query;
   final String title;
 
-  AttendancePage({this.query, this.title});
+  AttendancePage({required this.query, required this.title});
 
   @override
   _AttendancePageState createState() => _AttendancePageState();
 }
 
 class _AttendancePageState extends State<AttendancePage> {
-  // Progress dialog
-  ProgressDialog pr;
-
+  late ProgressDialog pr;
   final LocalAuthentication _localAuthentication = LocalAuthentication();
-
-  // Database
-  DbHelper dbHelper = DbHelper();
-
-  // Utils
-  Utils utils = Utils();
-
-  // Model settings
-  Settings settings;
-
-  // Global key scaffold
+  final DbHelper dbHelper = DbHelper();
+  final Utils utils = Utils();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // String
-  String getUrl,
+  late Settings settings;
+  late String getUrl,
       getKey,
       getQrId,
       getQuery,
       getPath = '/api/attendance/apiSaveAttendance',
       mAccuracy,
       getPathArea = '/api/area/index';
-
   var getId, _value;
-  bool _isMockLocation, clickButton = false;
-
-  // Geolocation
-  Position _currentPosition;
-  final Geolocator geoLocator = Geolocator()..forceAndroidLocationManager;
-  var subscription;
+  late bool _isMockLocation, clickButton = false;
+  late Position _currentPosition;
+  final Geolocator geoLocator = Geolocator();
+  late StreamSubscription<Position> subscription;
   double setAccuracy = 200.0;
-
   List dataArea = [];
 
   @override
@@ -77,146 +62,158 @@ class _AttendancePageState extends State<AttendancePage> {
 
   @override
   void dispose() {
+    subscription.cancel();
     TrustLocation.stop();
     super.dispose();
   }
 
-  getAreaApi() async {
+  Future<void> getAreaApi() async {
     pr.show();
     final uri = utils.getRealUrl(getUrl, getPathArea);
     Dio dio = Dio();
-    final response = await dio.get(uri);
-
-    var data = response.data;
-
-    if (data['message'] == 'success') {
-      dataArea = data['area'];
-    } else {
-      dataArea = [
-        {"id": 0, "name": "No Data Area"}
-      ];
-    }
-
-    setState(() {
-      pr.hide();
-    });
-  }
-
-  checkMockInfo() async {
     try {
-      TrustLocation.onChange
-          .listen((values) => _isMockLocation = values.isMockLocation);
-    } on PlatformException catch (e) {
-      print('PlatformException $e');
-    }
-  }
+      final response = await dio.get(uri);
+      var data = response.data;
 
-  // Get latitude longitude
-  _getCurrentLocation() {
-    subscription = geoLocator
-        .getPositionStream(LocationOptions(
-            accuracy: LocationAccuracy.best, timeInterval: 1000))
-        .listen((position) {
+      if (data['message'] == 'success') {
+        setState(() {
+          dataArea = data['area'];
+        });
+      } else {
+        setState(() {
+          dataArea = [
+            {"id": 0, "name": "No Data Area"}
+          ];
+        });
+      }
+    } catch (e) {
+      print("Error fetching area data: $e");
+    } finally {
       if (mounted) {
         setState(() {
-          _currentPosition = position;
+          pr.close();
         });
-
-        _getAddressFromLatLng(_currentPosition.accuracy);
       }
-    });
-  }
-
-  // Get address
-  _getAddressFromLatLng(double accuracy) async {
-    String strAccuracy = accuracy.toStringAsFixed(1);
-    if (accuracy > setAccuracy) {
-      mAccuracy = '$strAccuracy $attendance_not_accurate';
-    } else {
-      mAccuracy = '$strAccuracy $attendance_accurate';
     }
   }
 
-  // Get settings data
-  void getSettings() async {
+  Future<void> checkMockInfo() async {
+    try {
+      TrustLocation.onChange.listen((values) {
+        setState(() {
+          _isMockLocation = values.isMockLocation!;
+        });
+      });
+    } on PlatformException catch (e) {
+      print('PlatformException: $e');
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    LocationSettings locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.best,
+      distanceFilter:
+          10, // The minimum distance (in meters) before updates are received.
+    );
+
+    try {
+      subscription =
+          Geolocator.getPositionStream(locationSettings: locationSettings)
+              .listen(
+        (Position position) {
+          if (mounted) {
+            setState(() {
+              _currentPosition = position;
+            });
+            // Call a method to process the address with the current position
+            _getAddressFromLatLng(_currentPosition as double);
+          }
+        },
+        onError: (error) {
+          // Handle any errors here, such as permissions not granted
+          print("Error getting location: $error");
+        },
+      );
+    } catch (e) {
+      print("Exception occurred while getting location: $e");
+    }
+  }
+
+  Future<void> _getAddressFromLatLng(double accuracy) async {
+    String strAccuracy = accuracy.toStringAsFixed(1);
+    setState(() {
+      mAccuracy = (accuracy > setAccuracy)
+          ? '$strAccuracy $attendance_not_accurate'
+          : '$strAccuracy $attendance_accurate';
+    });
+  }
+
+  Future<void> getSettings() async {
     var getSettings = await dbHelper.getSettings(1);
     setState(() {
       getUrl = getSettings.url;
       getKey = getSettings.key;
-      getAreaApi();
     });
+    getAreaApi();
   }
 
-  // Check is there any data at Shared Preferences, is any data, means user logged
-  getPref() async {
+  Future<void> getPref() async {
     SharedPreferences preferences = await SharedPreferences.getInstance();
     setState(() {
       getId = preferences.getInt("id");
     });
   }
 
-  // Send data post via http
-  sendData() async {
-    pr.show();
-
+  Future<void> sendData() async {
     if (_value == null) {
-      Future.delayed(Duration(seconds: 0)).then((value) {
+      if (mounted) {
         setState(() {
-          pr.hide();
-
-          utils.showAlertDialog(
-              select_area, "warning", AlertType.warning, _scaffoldKey, true);
+          pr.close();
         });
-      });
-
+      }
+      utils.showAlertDialog(
+          select_area, "warning", AlertType.warning, _scaffoldKey, true);
       return;
     }
 
-    // Get info for attendance
-    var dataKey = getKey;
-    var dataQuery = getQuery;
+    pr.show();
 
-    // Add data to map
     Map<String, dynamic> body = {
-      'key': dataKey,
+      'key': getKey,
       'worker_id': getId,
-      'q': dataQuery,
+      'q': getQuery,
       'lat': _currentPosition.latitude,
       'longt': _currentPosition.longitude,
       'area_id': _value,
     };
 
-    // Sending the data to server
-    final uri = utils.getRealUrl(getUrl, getPath);
-    Dio dio = Dio();
-    FormData formData = FormData.fromMap(body);
-    final response = await dio.post(uri, data: formData);
+    try {
+      final uri = utils.getRealUrl(getUrl, getPath);
+      Dio dio = Dio();
+      FormData formData = FormData.fromMap(body);
+      final response = await dio.post(uri, data: formData);
+      var data = response.data;
 
-    var data = response.data;
-
-    // Show response from server via snackBar
-    if (data['message'] == 'Success!') {
-      // Set the url and key
-      Attendance attendance = Attendance(
+      if (data['message'] == 'Success!') {
+        Attendance attendance = Attendance(
           date: data['date'],
+          id: data['id'],
           time: data['time'],
           location: data['location'],
-          type: data['query']);
+          type: data['query'],
+        );
 
-      // Insert the settings
-      insertAttendance(attendance);
+        insertAttendance(attendance);
 
-      // Hide the loading
-      Future.delayed(Duration(seconds: 0)).then((value) {
         if (mounted) {
           setState(() {
             subscription.cancel();
-            pr.hide();
+            pr.close();
             Alert(
-              context: _scaffoldKey.currentContext,
+              context: _scaffoldKey.currentContext!,
               type: AlertType.success,
               title: "Success",
-              desc: "$attendance_show_alert-$dataQuery $attendance_success_ms",
+              desc: "$attendance_show_alert-$getQuery $attendance_success_ms",
               buttons: [
                 DialogButton(
                   child: Text(
@@ -234,274 +231,120 @@ class _AttendancePageState extends State<AttendancePage> {
             ).show();
           });
         }
-      });
-    } else if (data['message'] == 'cannot attend') {
-      Future.delayed(Duration(seconds: 0)).then((value) {
+      } else {
+        _handleErrorResponse(data['message']);
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          pr.hide();
-
-          utils.showAlertDialog(
-              outside_area, "warning", AlertType.warning, _scaffoldKey, true);
+          pr.close();
         });
-      });
-    } else if (data['message'] == 'location not found') {
-      Future.delayed(Duration(seconds: 0)).then((value) {
-        setState(() {
-          pr.hide();
-
-          utils.showAlertDialog(location_not_found, "warning",
-              AlertType.warning, _scaffoldKey, true);
-        });
-      });
-    } else if (data['message'] == 'already check-in') {
-      Future.delayed(Duration(seconds: 0)).then((value) {
-        setState(() {
-          pr.hide();
-
-          utils.showAlertDialog(already_check_in, "warning", AlertType.warning,
-              _scaffoldKey, true);
-        });
-      });
-    } else if (data['message'] == 'check-in first') {
-      Future.delayed(Duration(seconds: 0)).then((value) {
-        setState(() {
-          pr.hide();
-
-          utils.showAlertDialog(
-              check_in_first, "warning", AlertType.warning, _scaffoldKey, true);
-        });
-      });
-    } else if (data['message'] == 'Error! Something Went Wrong!') {
-      Future.delayed(Duration(seconds: 0)).then((value) {
-        setState(() {
-          pr.hide();
-
-          utils.showAlertDialog(attendance_error_server, "Error",
-              AlertType.error, _scaffoldKey, true);
-        });
-      });
-    } else {
-      Future.delayed(Duration(seconds: 0)).then((value) {
-        setState(() {
-          pr.hide();
-
-          utils.showAlertDialog(response.data.toString(), "Error",
-              AlertType.error, _scaffoldKey, true);
-        });
-      });
+      }
+      utils.showAlertDialog(
+          'Error: $e', "Error", AlertType.error, _scaffoldKey, true);
     }
   }
 
-  insertAttendance(Attendance object) async {
+  void _handleErrorResponse(String message) {
+    if (mounted) {
+      setState(() {
+        pr.close();
+      });
+    }
+
+    switch (message) {
+      case 'cannot attend':
+        utils.showAlertDialog(
+            outside_area, "warning", AlertType.warning, _scaffoldKey, true);
+        break;
+      case 'location not found':
+        utils.showAlertDialog(location_not_found, "warning", AlertType.warning,
+            _scaffoldKey, true);
+        break;
+      case 'already check-in':
+        utils.showAlertDialog(
+            already_check_in, "warning", AlertType.warning, _scaffoldKey, true);
+        break;
+      case 'check-in first':
+        utils.showAlertDialog(
+            check_in_first, "warning", AlertType.warning, _scaffoldKey, true);
+        break;
+      case 'Error! Something Went Wrong!':
+        utils.showAlertDialog(attendance_error_server, "Error", AlertType.error,
+            _scaffoldKey, true);
+        break;
+      default:
+        utils.showAlertDialog(
+            message, "Error", AlertType.error, _scaffoldKey, true);
+        break;
+    }
+  }
+
+  Future<void> insertAttendance(Attendance object) async {
     await dbHelper.newAttendances(object);
   }
 
-  // To check if any type of biometric authentication
-  // hardware is available.
   Future<bool> _isBiometricAvailable() async {
-    bool isAvailable = false;
     try {
-      isAvailable = await _localAuthentication.canCheckBiometrics;
+      return await _localAuthentication.canCheckBiometrics;
     } on PlatformException catch (e) {
-      print(e);
+      print('PlatformException: $e');
+      return false;
     }
-
-    if (!mounted) return isAvailable;
-
-    return isAvailable;
   }
 
-  // To retrieve the list of biometric types
-  // (if available).
   Future<void> _getListOfBiometricTypes() async {
-    List<BiometricType> listOfBiometrics;
     try {
-      listOfBiometrics = await _localAuthentication.getAvailableBiometrics();
+      await _localAuthentication.getAvailableBiometrics();
     } on PlatformException catch (e) {
-      print(e);
+      print('PlatformException: $e');
     }
-
-    if (!mounted) return;
   }
 
-  // Process of authentication user using
-  // biometrics.
   Future<void> _authenticateUser() async {
     bool isAuthenticated = false;
     try {
-      isAuthenticated = await _localAuthentication.authenticateWithBiometrics(
-        localizedReason: "Please authenticate to attending",
-        useErrorDialogs: true,
-        stickyAuth: true,
+      isAuthenticated = await _localAuthentication.authenticate(
+        localizedReason: "Please authenticate to attend",
+        options: const AuthenticationOptions(
+          useErrorDialogs: true,
+          stickyAuth: true,
+        ),
       );
     } on PlatformException catch (e) {
-      print(e);
+      print('PlatformException: $e');
     }
 
-    if (!mounted) return;
-
-    if (isAuthenticated) {
-      sendData();
+    if (isAuthenticated && mounted) {
+      await sendData();
     }
   }
 
-  CheckMockIsNull() async {
-    // Check if user click button attendance
+  bool isProgressDialogShowing = false;
+
+  Future<void> CheckMockIsNull() async {
     if (clickButton) {
-      // Check mock is already get status
-      if (_isMockLocation == null) {
-        Future.delayed(Duration(seconds: 0)).then((value) {
-          // Check if pr is showing or not
-          if (!pr.isShowing()) {
-            pr.show();
-            pr.update(
-              progress: 50.0,
-              message: check_mock,
-              progressWidget: Container(
-                  padding: EdgeInsets.all(8.0),
-                  child: CircularProgressIndicator()),
-              maxProgress: 100.0,
-              progressTextStyle: TextStyle(
-                  color: Colors.black,
-                  fontSize: 13.0,
-                  fontWeight: FontWeight.w400),
-              messageTextStyle: TextStyle(
-                  color: Colors.black,
-                  fontSize: 19.0,
-                  fontWeight: FontWeight.w600),
-            );
-          }
-        });
-      } else if (_isMockLocation == true) {
-        Future.delayed(Duration(seconds: 0)).then((value) {
-          // Detect mock is true, mean user use fake gps
-          setState(() {
-            clickButton = false;
-            if (pr.isShowing()) {
-              pr.hide();
-            }
-          });
-
-          utils.showAlertDialog(
-              fake_gps, "warning", AlertType.warning, _scaffoldKey, true);
-        });
-      } else {
-        Future.delayed(Duration(seconds: 0)).then((value) async {
-          setState(() {
-            clickButton = false;
-            if (pr.isShowing()) {
-              pr.hide();
-            }
-          });
-
-          // If already get mock will continue show biometric
-          if (await _isBiometricAvailable()) {
-            await _getListOfBiometricTypes();
-            await _authenticateUser();
-          } else {
-            utils.showAlertDialog(not_support_fingerprint, "warning",
-                AlertType.warning, _scaffoldKey, true);
-          }
-        });
-      }
+      clickButton = true;
+      await _authenticateUser();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Show progress
-    pr = ProgressDialog(context,
-        isDismissible: false, type: ProgressDialogType.Normal);
-    // Style progress
-    pr.style(
-      message: attendance_sending,
-      borderRadius: 10.0,
-      backgroundColor: Colors.white,
-      progressWidget: CircularProgressIndicator(),
-      elevation: 10.0,
-      padding: EdgeInsets.all(10.0),
-      insetAnimCurve: Curves.easeInOut,
-      progress: 0.0,
-      maxProgress: 100.0,
-      progressTextStyle: TextStyle(
-          color: Colors.black, fontSize: 13.0, fontWeight: FontWeight.w400),
-      messageTextStyle: TextStyle(
-          color: Colors.black, fontSize: 19.0, fontWeight: FontWeight.w600),
-    );
-
-    // Init the query
-    getQuery = widget.query;
-
-    // Check if user use fake gps
-    CheckMockIsNull();
-
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
         title: Text(widget.title),
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Container(
-              margin: EdgeInsets.fromLTRB(60.0, 20.0, 60.0, 20.0),
-              child: Column(
-                children: [
-                  Text(
-                    'Please Select Area',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 14.0),
-                    textAlign: TextAlign.center,
-                  ),
-                  DropdownButton(
-                    items: dataArea.map((item) {
-                      return DropdownMenuItem(
-                        child: Text(item['name']),
-                        value: item['id'].toString(),
-                      );
-                    }).toList(),
-                    onChanged: (newVal) {
-                      setState(() {
-                        _value = newVal;
-                      });
-                    },
-                    value: _value,
-                    isExpanded: true,
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              margin: EdgeInsets.all(20.0),
-              child: ButtonTheme(
-                minWidth: double.infinity,
-                height: 60.0,
-                child: RaisedButton(
-                  child: Text(button_scan_attend),
-                  color: Color(0xFFf7c846),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18.0),
-                  ),
-                  textColor: Colors.black,
-                  onPressed: () async {
-                    clickButton = true;
-                  },
-                ),
-              ),
-            ),
-            Text(
-              '$attendance_button_info-$getQuery.',
-              style: TextStyle(color: Colors.grey, fontSize: 12.0),
-            ),
-            SizedBox(
-              height: 20.0,
-            ),
-            Text(
-              '$attendance_accurate_info $mAccuracy $attendance_on_gps',
-              style: TextStyle(color: Colors.grey[600], fontSize: 14.0),
-              textAlign: TextAlign.center,
-            ),
-          ],
+        child: ElevatedButton(
+          onPressed: () {
+            setState(() {
+              clickButton = true;
+            });
+            CheckMockIsNull();
+          },
+          child: Text("Mark Attendance"),
         ),
       ),
     );

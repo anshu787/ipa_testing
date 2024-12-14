@@ -5,7 +5,9 @@ import 'package:attendancewithfingerprint/database/db_helper.dart';
 import 'package:attendancewithfingerprint/model/settings.dart';
 import 'package:attendancewithfingerprint/screen/login_page.dart';
 import 'package:attendancewithfingerprint/utils/strings.dart';
-import 'package:barcode_scan/barcode_scan.dart';
+
+import 'package:barcode_scan2/model/scan_result.dart';
+import 'package:barcode_scan2/platform_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rflutter_alert/rflutter_alert.dart';
@@ -22,7 +24,7 @@ class _ScanQrPageState extends State<ScanQrPage> {
   Utils utils = Utils();
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
   String _barcode = "";
-  Settings settings;
+  late Settings settings;
   String _isAlreadyDoSettings = 'loading';
 
   Future scan() async {
@@ -38,9 +40,10 @@ class _ScanQrPageState extends State<ScanQrPage> {
         // Decode the json data form QR
         String getUrl = data['url'];
         String getKey = data['key'];
+        int getId = data['id'];
 
         // Set the url and key
-        settings = Settings(url: getUrl, key: getKey);
+        settings = Settings(url: getUrl, key: getKey, id: getId);
         // Insert the settings
         insertSettings(settings);
       } else {
@@ -51,7 +54,7 @@ class _ScanQrPageState extends State<ScanQrPage> {
       setState(() {
         _isAlreadyDoSettings = 'no';
       });
-      if (e.code == BarcodeScanner.CameraAccessDenied) {
+      if (e.code == BarcodeScanner.cameraAccessDenied) {
         _barcode = barcode_permission_cam_close;
         utils.showAlertDialog(
             _barcode, "Warning", AlertType.warning, _scaffoldKey, false);
@@ -125,7 +128,6 @@ class _ScanQrPageState extends State<ScanQrPage> {
                 SizedBox(
                   height: 10.0,
                 ),
-
                 SizedBox(
                   height: 20.0,
                 ),
@@ -137,15 +139,17 @@ class _ScanQrPageState extends State<ScanQrPage> {
                 SizedBox(
                   height: 40.0,
                 ),
-                RaisedButton(
+                ElevatedButton(
                   child: Text(button_scan),
-                  color: Color(0xFFf7c846),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18.0),
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.black,
+                    backgroundColor: Color(0xFFf7c846), // Text color
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18.0),
+                    ),
                   ),
-                  textColor: Colors.black,
                   onPressed: () => scan(),
-                ),
+                )
               ],
             ),
           ),
@@ -162,4 +166,8 @@ class _ScanQrPageState extends State<ScanQrPage> {
       ),
     );
   }
+}
+
+extension on ScanResult {
+  replaceAll(String s, String t) {}
 }

@@ -1,4 +1,4 @@
-import 'package:android_intent/android_intent.dart';
+import 'package:android_intent_plus/android_intent.dart';
 import 'package:attendancewithfingerprint/screen/about_page.dart';
 import 'package:attendancewithfingerprint/screen/attendance_page.dart';
 import 'package:attendancewithfingerprint/screen/login_page.dart';
@@ -46,7 +46,7 @@ class _MenuState extends State<Menu> {
 
   // Check the GPS is on
   Future _checkGps() async {
-    if (!(await Geolocator().isLocationServiceEnabled())) {
+    if (!(await Geolocator.isLocationServiceEnabled())) {
       if (Theme.of(context).platform == TargetPlatform.android) {
         showDialog(
           context: context,
@@ -56,7 +56,7 @@ class _MenuState extends State<Menu> {
               content:
                   const Text('Please make sure your enable GPS and try again.'),
               actions: <Widget>[
-                FlatButton(
+                TextButton(
                   child: Text('Ok'),
                   onPressed: () async {
                     final AndroidIntent intent = AndroidIntent(
@@ -65,7 +65,7 @@ class _MenuState extends State<Menu> {
                     await intent.launch();
                     Navigator.of(context, rootNavigator: true).pop();
                   },
-                ),
+                )
               ],
             );
           },
@@ -102,7 +102,6 @@ class _MenuState extends State<Menu> {
                   width: double.infinity,
                   height: 200.0,
                   color: Colors.white,
-
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -112,7 +111,6 @@ class _MenuState extends State<Menu> {
                       SizedBox(
                         height: 10.0,
                       ),
-
                     ],
                   ),
                 ),
@@ -120,14 +118,10 @@ class _MenuState extends State<Menu> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     SingleMenu(
-
                       icon: FontAwesomeIcons.userClock,
                       menuName: main_menu_check_in,
-                      style:TextStyle(
-                        color: Colors.black
-                      ),
+                      style: TextStyle(color: Colors.black),
                       color: Colors.orange,
-
                       action: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => AttendancePage(
@@ -149,8 +143,11 @@ class _MenuState extends State<Menu> {
                           ),
                         ),
                       ),
+                      style: TextStyle(
+                        fontSize: 14.0, // Adjust the font size as needed
+                        color: Colors.black, // Adjust the text color as needed
+                      ),
                     ),
-
                   ],
                 ),
                 Row(
@@ -159,39 +156,54 @@ class _MenuState extends State<Menu> {
                     SingleMenu(
                       icon: FontAwesomeIcons.calendar,
                       menuName: main_menu_report,
-                      color: Colors.yellow[700],
+                      color: Colors.yellow[700]!,
                       action: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (context) => ReportPage()),
                       ),
+                      style: TextStyle(
+                        fontSize: 14.0, // Adjust the font size as needed
+                        color: Colors.black, // Adjust the text color as needed
+                      ),
                     ),
                     SingleMenu(
-                      icon: FontAwesomeIcons.cogs,
+                      icon: FontAwesomeIcons.gear,
                       menuName: main_menu_settings,
                       color: Colors.green,
                       action: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (context) => SettingPage()),
                       ),
+                      style: TextStyle(
+                        fontSize: 14.0, // Customize the font size as needed
+                        color: Colors.black, // Adjust the color as necessary
+                      ),
                     ),
                   ],
                 ),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-
                     SingleMenu(
-                      icon: FontAwesomeIcons.userAlt,
+                      icon: FontAwesomeIcons.userLarge,
                       menuName: main_menu_about,
                       color: Colors.purple,
                       action: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (context) => AboutPage()),
                       ),
+                      style: TextStyle(
+                        fontSize: 14.0, // Adjust the font size as needed
+                        color: Colors
+                            .black, // Change the color to match your design
+                      ),
                     ),
                     SingleMenu(
-                      icon: FontAwesomeIcons.signOutAlt,
+                      icon: FontAwesomeIcons.rightFromBracket,
                       menuName: 'Logout',
-                      color: Colors.red[300],
+                      color: Colors.red,
                       action: () => _signOut(),
+                      style: TextStyle(
+                        fontSize: 14.0, // Adjust the font size as needed
+                        color: Colors.black, // Set the text color as desired
+                      ),
                     ),
                   ],
                 ),
@@ -202,5 +214,4 @@ class _MenuState extends State<Menu> {
       ),
     );
   }
-
 }

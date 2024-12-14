@@ -17,7 +17,12 @@ class Attendance {
   String location;
   String type;
 
-  Attendance({this.id, this.date, this.time, this.location, this.type});
+  Attendance(
+      {required this.id,
+      required this.date,
+      required this.time,
+      required this.location,
+      required this.type});
 
   factory Attendance.fromMap(Map<String, dynamic> json) => Attendance(
         id: json["id"],

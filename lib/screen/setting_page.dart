@@ -4,7 +4,8 @@ import 'dart:convert';
 import 'package:attendancewithfingerprint/database/db_helper.dart';
 import 'package:attendancewithfingerprint/model/settings.dart';
 import 'package:attendancewithfingerprint/utils/strings.dart';
-import 'package:barcode_scan/barcode_scan.dart';
+import 'package:barcode_scan2/model/scan_result.dart';
+import 'package:barcode_scan2/platform_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rflutter_alert/rflutter_alert.dart';
@@ -21,7 +22,7 @@ class _SettingPageState extends State<SettingPage> {
   Utils utils = Utils();
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
   String _barcode = "";
-  Settings settings;
+  late Settings settings;
 
   Future scan() async {
     try {
@@ -46,7 +47,7 @@ class _SettingPageState extends State<SettingPage> {
             format_barcode_wrong, "Error", AlertType.error, _scaffoldKey, true);
       }
     } on PlatformException catch (e) {
-      if (e.code == BarcodeScanner.CameraAccessDenied) {
+      if (e.code == BarcodeScanner.cameraAccessDenied) {
         _barcode = camera_permission;
         utils.showAlertDialog(
             _barcode, "Warning", AlertType.warning, _scaffoldKey, true);
@@ -94,13 +95,15 @@ class _SettingPageState extends State<SettingPage> {
             SizedBox(
               height: 40.0,
             ),
-            RaisedButton(
+            ElevatedButton(
               child: Text(button_scan),
-              color: Color(0xFFf7c846),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18.0),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.black,
+                backgroundColor: Color(0xFFf7c846), // Text color
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18.0),
+                ),
               ),
-              textColor: Colors.black,
               onPressed: () => scan(),
             ),
             SizedBox(
@@ -116,4 +119,8 @@ class _SettingPageState extends State<SettingPage> {
       ),
     );
   }
+}
+
+extension on ScanResult {
+  replaceAll(String s, String t) {}
 }

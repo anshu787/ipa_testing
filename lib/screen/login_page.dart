@@ -3,8 +3,9 @@ import 'package:attendancewithfingerprint/screen/main_menu_page.dart';
 import 'package:attendancewithfingerprint/utils/strings.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:progress_dialog/progress_dialog.dart';
+import 'package:sn_progress_dialog/sn_progress_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sn_progress_dialog/progress_dialog.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -15,7 +16,7 @@ enum LoginStatus { notSignIn, signIn, doubleCheck }
 
 class _LoginPageState extends State<LoginPage> {
   LoginStatus _loginStatus = LoginStatus.notSignIn;
-  String email, pass, isLogged, getUrl, getKey;
+  late String email, pass, isLogged, getUrl, getKey;
   String statusLogged = 'logged';
   String getPath = '/api/login';
   final _key = GlobalKey<FormState>();
@@ -23,7 +24,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _secureText = true;
 
   // Progress dialog
-  ProgressDialog pr;
+  late ProgressDialog pr;
 
   // Database
   DbHelper dbHelper = DbHelper();
@@ -46,7 +47,7 @@ class _LoginPageState extends State<LoginPage> {
   // Check if all data is ok, will submit the form via API
   check() {
     final form = _key.currentState;
-    if (form.validate()) {
+    if (form!.validate()) {
       form.save();
       login('clickButton');
     }
@@ -116,7 +117,7 @@ class _LoginPageState extends State<LoginPage> {
     Future.delayed(Duration(seconds: 0)).then((value) {
       if (mounted) {
         setState(() {
-          if (fromWhere == 'clickButton') pr.hide();
+          if (fromWhere == 'clickButton') pr.close();
         });
       }
     });
@@ -124,16 +125,17 @@ class _LoginPageState extends State<LoginPage> {
 
   removePref() async {
     SharedPreferences preferences = await SharedPreferences.getInstance();
-    preferences.setString("status", null);
-    preferences.setString("email", null);
-    preferences.setString("password", null);
-    preferences.setInt("id", null);
+    preferences.remove("status");
+    preferences.remove("email");
+    preferences.remove("password");
+    preferences.remove("id");
   }
 
   // Show snackBar
-  getSnackBar(String messageSnackBar) {
-    return _scaffoldKey.currentState
-        .showSnackBar(SnackBar(content: Text(messageSnackBar)));
+  void getSnackBar(String messageSnackBar) {
+    ScaffoldMessenger.of(_scaffoldKey.currentContext!).showSnackBar(
+      SnackBar(content: Text(messageSnackBar)),
+    );
   }
 
   // Save the data from json data
@@ -160,8 +162,8 @@ class _LoginPageState extends State<LoginPage> {
         _loginStatus = LoginStatus.doubleCheck;
         // if user aleady login, will check again, if there is any change on web server
         // Like change the role, or the status
-        email = getEmail;
-        pass = getPassword;
+        email = getEmail!;
+        pass = getPassword!;
         login('doubleCheck');
       } else {
         _loginStatus = LoginStatus.notSignIn;
@@ -172,24 +174,6 @@ class _LoginPageState extends State<LoginPage> {
   @override
   // ignore: missing_return
   Widget build(BuildContext context) {
-    // Show progress
-    pr = new ProgressDialog(context, type: ProgressDialogType.Normal);
-    // Style progress
-    pr.style(
-        message: login_checking_progress,
-        borderRadius: 10.0,
-        backgroundColor: Colors.white,
-        progressWidget: CircularProgressIndicator(),
-        elevation: 10.0,
-        padding: EdgeInsets.all(10.0),
-        insetAnimCurve: Curves.easeInOut,
-        progress: 0.0,
-        maxProgress: 100.0,
-        progressTextStyle: TextStyle(
-            color: Colors.black, fontSize: 13.0, fontWeight: FontWeight.w400),
-        messageTextStyle: TextStyle(
-            color: Colors.black, fontSize: 19.0, fontWeight: FontWeight.w600));
-
     switch (_loginStatus) {
       case LoginStatus.notSignIn:
         return Scaffold(
@@ -233,12 +217,12 @@ class _LoginPageState extends State<LoginPage> {
                         TextFormField(
                           validator: (e) {
                             var message;
-                            if (e.isEmpty) {
+                            if (e!.isEmpty) {
                               message = login_empty_email;
                             }
                             return message;
                           },
-                          onSaved: (e) => email = e,
+                          onSaved: (e) => email = e!,
                           decoration: InputDecoration(
                             labelText: login_label_email,
                           ),
@@ -246,13 +230,13 @@ class _LoginPageState extends State<LoginPage> {
                         TextFormField(
                           validator: (e) {
                             var message;
-                            if (e.isEmpty) {
+                            if (e!.isEmpty) {
                               message = login_empty_password;
                             }
                             return message;
                           },
                           obscureText: _secureText,
-                          onSaved: (e) => pass = e,
+                          onSaved: (e) => pass = e!,
                           decoration: InputDecoration(
                             labelText: login_label_password,
                             suffixIcon: IconButton(
@@ -267,17 +251,38 @@ class _LoginPageState extends State<LoginPage> {
                           margin: EdgeInsets.only(top: 20.0),
                           width: double.infinity,
                           height: 50,
-                          child: RaisedButton(
+                          child: ElevatedButton(
                             onPressed: () {
                               FocusScope.of(context).requestFocus(FocusNode());
-                              check();
+                              // Show loading dialog before executing check()
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => AlertDialog(
+                                  content: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircularProgressIndicator(),
+                                      SizedBox(width: 20),
+                                      Text('Loading...'),
+                                    ],
+                                  ),
+                                ),
+                              );
+                              check().whenComplete(() {
+                                // Close the loading dialog after check() completes
+                                Navigator.of(context).pop();
+                              });
                             },
-                            color: Colors.blue,
-                            textColor: Colors.white,
-                            child: Text(login_button),
-                            shape: RoundedRectangleBorder(
+                            style: ElevatedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.blue, // text color
+                              shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(18.0),
-                                side: BorderSide(color: Colors.blue)),
+                                side: BorderSide(color: Colors.blue),
+                              ),
+                            ),
+                            child: Text(login_button),
                           ),
                         ),
                         SizedBox(

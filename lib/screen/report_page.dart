@@ -9,8 +9,8 @@ class ReportPage extends StatefulWidget {
 }
 
 class _ReportPageState extends State<ReportPage> {
-  DbHelper dbHelper = DbHelper();
-  Future<List<Attendance>> attendances;
+  final DbHelper dbHelper = DbHelper();
+  late Future<List<Attendance>> attendances;
 
   @override
   void initState() {
@@ -18,12 +18,10 @@ class _ReportPageState extends State<ReportPage> {
     getData();
   }
 
-  getData() async {
-    if (mounted) {
-      setState(() {
-        attendances = dbHelper.getAttendances();
-      });
-    }
+  void getData() {
+    setState(() {
+      attendances = dbHelper.getAttendances();
+    });
   }
 
   SingleChildScrollView dataTable(List<Attendance> attendances) {
@@ -36,44 +34,46 @@ class _ReportPageState extends State<ReportPage> {
             DataColumn(
               label: Text(
                 report_date,
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
             DataColumn(
               label: Text(
                 report_time,
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
             DataColumn(
               label: Text(
                 report_type,
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
             DataColumn(
               label: Text(
                 report_location,
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
           ],
           rows: attendances
               .map(
-                (attendance) => DataRow(cells: [
-                  DataCell(
-                    Text(attendance.date),
-                  ),
-                  DataCell(
-                    Text(attendance.time),
-                  ),
-                  DataCell(
-                    Text(attendance.type),
-                  ),
-                  DataCell(
-                    Text(attendance.location),
-                  ),
-                ]),
+                (attendance) => DataRow(
+                  cells: [
+                    DataCell(
+                      Text(attendance.date),
+                    ),
+                    DataCell(
+                      Text(attendance.time),
+                    ),
+                    DataCell(
+                      Text(attendance.type),
+                    ),
+                    DataCell(
+                      Text(attendance.location),
+                    ),
+                  ],
+                ),
               )
               .toList(),
         ),
@@ -81,20 +81,24 @@ class _ReportPageState extends State<ReportPage> {
     );
   }
 
-  list() {
+  Widget list() {
     return Expanded(
-      child: FutureBuilder(
+      child: FutureBuilder<List<Attendance>>(
         future: attendances,
         builder: (context, snapshot) {
-          if (null == snapshot.data || snapshot.data.length == 0) {
-            return Center(child: Text(report_no_data));
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
           }
 
-          if (snapshot.hasData) {
-            return dataTable(snapshot.data);
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
           }
 
-          return CircularProgressIndicator();
+          if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+            return dataTable(snapshot.data!);
+          }
+
+          return Center(child: Text(report_no_data));
         },
       ),
     );
@@ -106,15 +110,10 @@ class _ReportPageState extends State<ReportPage> {
       appBar: AppBar(
         title: Text(report_title),
       ),
-      body: Container(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          verticalDirection: VerticalDirection.down,
-          children: <Widget>[
-            list(),
-          ],
-        ),
+      body: Column(
+        children: <Widget>[
+          list(),
+        ],
       ),
     );
   }

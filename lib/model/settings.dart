@@ -15,7 +15,7 @@ class Settings {
   String url;
   String key;
 
-  Settings({this.id, this.url, this.key});
+  Settings({required this.id, required this.url, required this.key});
 
   factory Settings.fromMap(Map<String, dynamic> json) => Settings(
         id: json["id"],

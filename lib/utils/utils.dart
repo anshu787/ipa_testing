@@ -25,7 +25,7 @@ class Utils {
       GlobalKey<ScaffoldState> _scaffoldKey, bool isAnyButton) {
     if (isAnyButton == true) {
       Alert(
-        context: _scaffoldKey.currentContext,
+        context: _scaffoldKey.currentContext!,
         style: alertStyle,
         type: alertType,
         title: title,
@@ -36,14 +36,14 @@ class Utils {
               ok_text,
               style: TextStyle(color: Colors.white, fontSize: 20),
             ),
-            onPressed: () => Navigator.pop(_scaffoldKey.currentContext),
+            onPressed: () => Navigator.pop(_scaffoldKey.currentContext!),
             width: 120,
           )
         ],
       ).show();
     } else {
       Alert(
-        context: _scaffoldKey.currentContext,
+        context: _scaffoldKey.currentContext!,
         style: alertStyle,
         type: alertType,
         title: title,

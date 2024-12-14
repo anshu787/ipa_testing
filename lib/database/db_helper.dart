@@ -7,8 +7,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 class DbHelper {
-  static DbHelper _dbHelper;
-  static Database _database;
+  static late DbHelper _dbHelper;
+  static late Database _database;
 
   // Db name file
   String dbName = 'attendance.db';
@@ -20,9 +20,6 @@ class DbHelper {
   DbHelper._createObject();
 
   factory DbHelper() {
-    if (_dbHelper == null) {
-      _dbHelper = DbHelper._createObject();
-    }
     return _dbHelper;
   }
 
@@ -60,9 +57,6 @@ class DbHelper {
   }
 
   Future<Database> get database async {
-    if (_database == null) {
-      _database = await initDb();
-    }
     return _database;
   }
 
@@ -70,7 +64,7 @@ class DbHelper {
   // Check there is any data
   countSettings() async {
     final db = await database;
-    int count = Sqflite.firstIntValue(
+    int? count = Sqflite.firstIntValue(
         await db.rawQuery('SELECT COUNT(*) FROM $tableSettings'));
     return count;
   }
@@ -109,10 +103,12 @@ class DbHelper {
   // Get All attendance
   Future<List<Attendance>> getAttendances() async {
     final db = await database;
-    List<Map> maps = await db.rawQuery(
-        "SELECT * FROM $tableAttendance ORDER BY date(date) DESC, time(time) DESC");
+    List<Map<String, dynamic>> maps = List<Map<String, dynamic>>.from(
+      await db.rawQuery(
+          "SELECT * FROM $tableAttendance ORDER BY date(date) DESC, time(time) DESC"),
+    );
     List<Attendance> employees = [];
-    if (maps.length > 0) {
+    if (maps.isNotEmpty) {
       for (int i = 0; i < maps.length; i++) {
         employees.add(Attendance.fromMap(maps[i]));
       }
